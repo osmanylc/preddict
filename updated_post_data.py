@@ -2,6 +2,7 @@
 
 import sys
 import csv
+import time
 
 import pandas as pd
 import numpy as np
@@ -12,7 +13,8 @@ def current_post_data(start_from=0):
     filename = 'post_data_from_{}.csv'.format(start_from)
     df = pd.read_csv('aug2018.csv')
     reddit = praw.Reddit('preddit')
-    cols = ['index', 'score', 'ups', 'downs', 'num_comments', 'gilded', 'op_created']
+    cols = ['index', 'score', 'ups', 'downs', 'num_comments', 'gilded']
+    s_t = time.time()
     
     with open(filename, 'w', newline='') as csv_file:
         writer = csv.DictWriter(csv_file, cols)
@@ -22,21 +24,33 @@ def current_post_data(start_from=0):
             df_row = df.loc[i]
             data_row = [i]
 
-            post = reddit.submission(url=df_row.url)
-            if post is not None:
-                author = post.author
-                data_row.extend([post.score, post.ups, post.downs, post.num_comments, post.gilded])
-                
-                if author is not None:
-                    data_row.append(author.created_utc)
-                else:
-                    data_row.append('nan')
-            else:
-                data_row.extend(len(cols)*['nan'])
+            post_vals = _get_post_values(reddit, df_row.url, cols[1:])
+            data_row.extend(post_vals)
             
             writer.writerow(dict(zip(cols,data_row)))
-            if i+1 % 100 == 0:
-                print(i)
+            if (i-start_from + 1) % 100 == 0:
+                print('Processed posts: {}'.format(i-start_from + 1))
+                print('Time elapsed: {:.2f}s'.format(time.time() - s_t))
+                print('=======================')
+                
+                
+def _get_post_values(reddit, url, attrs):
+    post = reddit.submission(url=url)
+    post_vals = []
+    
+    if post is None:
+        return len(attrs) * ['nan']
+        
+    _ = len(post.title)
+    post_vars = vars(post)
+    
+    for a in attrs:
+        if a in post_vars:
+            post_vals.append(post_vars[a])
+        else:
+            post_vals.append('nan')
+    
+    return post_vals
             
             
             
